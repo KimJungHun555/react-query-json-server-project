@@ -1,93 +1,96 @@
-services:
+pipeline {
 
-  json-server:
-    build:
-      context: ./frontend/server
+    agent any
 
-    container_name: json-server
+    stages {
 
-    ports:
-      - "3001:3001"
+        stage('Check Environment') {
+            steps {
+                sh '''
+                    echo "===== Environment ====="
+                    pwd
+                    ls -al
 
-    restart: unless-stopped
+                    echo "===== Node ====="
+                    node -v
+                    npm -v
 
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+                    echo "===== Docker ====="
+                    docker --version
 
-    container_name: nginx
+                    echo "===== Buildx ====="
+                    docker buildx version || true
 
-    depends_on:
-      - json-server
-
-    ports:
-      - "80:80"
-
-    restart: unless-stopped
-    stage('Install Frontend') {
-                steps {
-                    dir('frontend') {
-                        sh 'npm install'
-                    }
-                }
+                    echo "===== Compose ====="
+                    docker-compose --version || true
+                '''
             }
+        }
 
-            stage('Build Frontend') {
-                steps {
-                    dir('frontend') {
-                        sh 'npm run build'
-                    }
-                }
-            }
 
-            stage('Deploy') {
-                steps {
-                    sh '''
-                        docker-compose down || true
-                        docker-compose build --no-cache
-                        docker-compose up -d
-                    '''
-                }
-            }
-
-            stage('Check Containers') {
-                steps {
-                    sh '''
-                        docker ps
-                    '''
+stage('Install Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm install'
                 }
             }
         }
 
-        post {
+        stage('Build Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build'
+                }
+            }
+        }
 
-            success {
-                echo '========================'
-                echo '배포 완료'
-                echo '========================'
+        stage('Deploy') {
+            steps {
+                sh '''
+                    docker-compose down || true
+                    docker-compose build --no-cache
+                    docker-compose up -d
+                '''
+            }
+        }
 
+        stage('Check Containers') {
+            steps {
                 sh '''
                     docker ps
                 '''
             }
-
-            failure {
-                echo '========================'
-                echo '배포 실패'
-                echo '========================'
-
-                sh '''
-                    echo "===== Docker PS ====="
-                    docker ps -a || true
-
-                    echo "===== Docker Images ====="
-                    docker images || true
-                '''
-            }
-
-            always {
-                sh 'docker ps || true'
-            }
         }
     }
+
+    post {
+
+        success {
+            echo '========================'
+            echo '배포 완료'
+            echo '========================'
+
+            sh '''
+                docker ps
+            '''
+        }
+
+        failure {
+            echo '========================'
+            echo '배포 실패'
+            echo '========================'
+
+            sh '''
+                echo "===== Docker PS ====="
+                docker ps -a || true
+
+                echo "===== Docker Images ====="
+                docker images || true
+            '''
+        }
+
+        always {
+            sh 'docker ps || true'
+        }
+    }
+}
