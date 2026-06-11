@@ -7,24 +7,21 @@ services:
     container_name: json-server
 
     ports:
+      - "3001:3001"
 
-  "3001:3001"
+    restart: unless-stopped
 
-restart: unless-stopped
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
 
-nginx:
-  build:
-    context: .
-    dockerfile: nginx/Dockerfile
+    container_name: nginx
 
-  container_name: nginx
+    depends_on:
+      - json-server
 
-  depends_on:
+    ports:
+      - "80:80"
 
-  json-server
-
-ports:
-
-  "80:80"
-
-restart: unless-stopped
+    restart: unless-stopped
