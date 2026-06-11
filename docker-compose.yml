@@ -1,20 +1,30 @@
-version: '3.8'
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-    depends_on:
-      - json-server
-    restart: always
 
   json-server:
-    image: clue/json-server
-    volumes:
-      # 경로를 frontend/server/db.json으로 지정
-      - ./frontend/server/db.json:/data/db.json
+    build:
+      context: ./frontend/server
+
+    container_name: json-server
+
     ports:
-      - "3000:3000"
-    restart: always
+
+  "3001:3001"
+
+restart: unless-stopped
+
+nginx:
+  build:
+    context: .
+    dockerfile: nginx/Dockerfile
+
+  container_name: nginx
+
+  depends_on:
+
+  json-server
+
+ports:
+
+  "80:80"
+
+restart: unless-stopped
