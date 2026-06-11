@@ -1,94 +1,93 @@
-pipeline {
+services:
 
-    agent any
+  json-server:
+    build:
+      context: ./frontend/server
 
-    stages {
+    container_name: json-server
 
-        stage('Check Environment') {
-            steps {
-                sh '''
-                    echo "===== Environment ====="
-                    pwd
-                    ls -al
+    ports:
+      - "3001:3001"
 
-                    echo "===== Node ====="
-                    node -v
-                    npm -v
+    restart: unless-stopped
 
-                    echo "===== Docker ====="
-                    docker --version
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
 
-                    echo "===== Buildx ====="
-                    docker buildx version  true
+    container_name: nginx
 
-                    echo "===== Compose ====="
-                    docker-compose --version  true
-                '''
-            }
-        }
-        stage('Install Frontend') {
-                    steps {
-                        dir('frontend') {
-                            sh 'npm install'
-                        }
-                    }
-                }
+    depends_on:
+      - json-server
 
-                stage('Build Frontend') {
-                    steps {
-                        dir('frontend') {
-                            sh 'npm run build'
-                        }
-                    }
-                }
+    ports:
+      - "80:80"
 
-                stage('Deploy') {
-                    steps {
-                        sh '''
-                            docker-compose down || true
-                            docker-compose build --no-cache
-                            docker-compose up -d
-                        '''
-                    }
-                }
-
-                stage('Check Containers') {
-                    steps {
-                        sh '''
-                            docker ps
-                        '''
+    restart: unless-stopped
+    stage('Install Frontend') {
+                steps {
+                    dir('frontend') {
+                        sh 'npm install'
                     }
                 }
             }
 
-            post {
+            stage('Build Frontend') {
+                steps {
+                    dir('frontend') {
+                        sh 'npm run build'
+                    }
+                }
+            }
 
-                success {
-                    echo '========================'
-                    echo '배포 완료'
-                    echo '========================'
+            stage('Deploy') {
+                steps {
+                    sh '''
+                        docker-compose down || true
+                        docker-compose build --no-cache
+                        docker-compose up -d
+                    '''
+                }
+            }
 
+            stage('Check Containers') {
+                steps {
                     sh '''
                         docker ps
                     '''
                 }
-
-                failure {
-                    echo '========================'
-                    echo '배포 실패'
-                    echo '========================'
-
-                    sh '''
-                        echo "===== Docker PS ====="
-                        docker ps -a || true
-
-                        echo "===== Docker Images ====="
-                        docker images || true
-                    '''
-                }
-
-                always {
-                    sh 'docker ps || true'
-                }
             }
         }
+
+        post {
+
+            success {
+                echo '========================'
+                echo '배포 완료'
+                echo '========================'
+
+                sh '''
+                    docker ps
+                '''
+            }
+
+            failure {
+                echo '========================'
+                echo '배포 실패'
+                echo '========================'
+
+                sh '''
+                    echo "===== Docker PS ====="
+                    docker ps -a || true
+
+                    echo "===== Docker Images ====="
+                    docker images || true
+                '''
+            }
+
+            always {
+                sh 'docker ps || true'
+            }
+        }
+    }
